@@ -1,10 +1,6 @@
-/* ============================================================
-   Kris Bank — demo app logic
-   Everything below is a CLIENT-SIDE SIMULATION. Accounts, PINs,
-   and balances are stored in this browser's localStorage only.
-   No real money moves and nothing leaves the browser. This is
-   for demo/prototype purposes, not a real banking backend.
-   ============================================================ */
+const API_URL = ["127.0.0.1", "localhost"].includes(window.location.hostname)
+  ? "http://127.0.0.1:8000"
+  : "https://kris-bank-backend.onrender.com";
 
 var KB = (function () {
   var ACCOUNTS_KEY = 'krisbank_accounts';
@@ -84,7 +80,10 @@ var KB = (function () {
   }
 
   function logout() {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
     localStorage.removeItem(SESSION_KEY);
+    window.location.href = 'index.html';
   }
 
   function getAccountByNumber(number) {
@@ -215,42 +214,98 @@ document.addEventListener('DOMContentLoaded', function () {
   var loginForm = document.getElementById('loginForm');
   var loginError = document.getElementById('loginError');
   if (loginForm) {
-    loginForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var number = document.getElementById('loginAcct').value.trim();
-      var pin = document.getElementById('loginPin').value.trim();
-      var result = KB.login(number, pin);
-      if (!result.ok) {
-        loginError.textContent = result.error;
-        return;
-      }
-      loginError.textContent = '';
-      window.location.href = 'dashboard.html';
-    });
+      loginForm.addEventListener('submit', async function (e) {
+          e.preventDefault();
+
+          var email = document.getElementById('loginEmail').value.trim();
+          var password = document.getElementById('loginPassword').value;
+
+          loginError.textContent = '';
+    
+          try {
+              var response = await fetch(`${API_URL}/auth/login`, {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                      email: email,
+                      password: password
+                  })
+              });
+
+              var data = await response.json();
+
+              if (!response.ok) {
+                  loginError.textContent =
+                      data.detail || 'Login failed.';
+                  return;
+              }
+
+              localStorage.setItem('access_token', data.access_token);
+              localStorage.setItem('refresh_token', data.refresh_token);
+
+              window.location.href = 'dashboard.html';
+
+          } catch (error) {
+              console.error(error);
+              loginError.textContent =
+                  'Unable to connect to the server.';
+          }
+      });
   }
 
   var signupForm = document.getElementById('signupForm');
   var signupError = document.getElementById('signupError');
-  if (signupForm) {
-    signupForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var name = document.getElementById('signupName').value.trim();
-      var type = document.getElementById('signupType').value;
-      var deposit = document.getElementById('signupDeposit').value;
-      var pin = document.getElementById('signupPin').value.trim();
 
-      if (!/^\d{4}$/.test(pin)) {
-        signupError.textContent = 'PIN must be exactly 4 digits.';
-        return;
-      }
-      if (Number(deposit) < 0) {
-        signupError.textContent = 'Opening deposit can\'t be negative.';
-        return;
-      }
-      signupError.textContent = '';
-      KB.signup({ name: name, type: type, deposit: deposit, pin: pin });
-      window.location.href = 'dashboard.html';
-    });
+  if (signupForm) {
+      signupForm.addEventListener('submit', async function (e) {
+          e.preventDefault();
+
+          var firstName = document.getElementById('signupFirstName').value.trim();
+          var lastName = document.getElementById('signupLastName').value.trim();
+          var email = document.getElementById('signupEmail').value.trim();
+          var phoneNumber = document.getElementById('signupPhone').value.trim();
+          var password = document.getElementById('signupPassword').value;
+
+          signupError.textContent = '';
+
+          try {
+              var response = await fetch(`${API_URL}/auth/register`, {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                      first_name: firstName,
+                      last_name: lastName,
+                      email: email,
+                      phone_number: phoneNumber,
+                      password: password
+                  })
+              });
+
+              var data = await response.json();
+
+              if (!response.ok) {
+                  signupError.textContent = data.detail || 'Registration failed.';
+                  return;
+              }
+
+              console.log('Registration successful:', data);
+
+              alert(
+                  `Account created successfully!\n\nYour account number is: ${data.account_number}`
+              );
+
+              signupForm.reset();
+
+          } catch (error) {
+              console.error(error);
+              signupError.textContent =
+                  'Unable to connect to the server.';
+          }
+      });
   }
 
   /* ---------- Netlify contact form ---------- */
@@ -306,108 +361,345 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  /* ---------- Deposit ---------- */
+  var depositForm = document.getElementById('depositForm');
+  if (depositForm) {
+    depositForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      var amountInput = document.getElementById('depositAmount');
+      var msg = document.getElementById('depositMsg');
+      var submitBtn = depositForm.querySelector('button[type="submit"]');
+      var amount = Number(amountInput.value);
+
+      msg.className = 'field-error';
+      msg.textContent = '';
+
+      if (!amount || amount <= 0) {
+        msg.textContent = 'Enter an amount greater than zero.';
+        return;
+      }
+
+      submitBtn.disabled = true;
+
+      try {
+        var response = await authFetch('/accounts/me/deposit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: amount })
+        });
+
+        var data = await response.json();
+
+        if (!response.ok) {
+          msg.textContent = typeof data.detail === 'string'
+            ? data.detail
+            : 'Please check the amount and try again.';
+          return;
+        }
+
+        msg.className = 'field-success';
+        msg.textContent = data.message ;
+        depositForm.reset();
+        loadDashboardData(); 
+      } catch (error) {
+        console.error(error);
+        msg.textContent = 'Unable to connect to the server.';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+    /* ---------- Withdrawal ---------- */
+  var withdrawalForm = document.getElementById('withdrawalForm');
+  if (withdrawalForm) {
+    withdrawalForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      var amountInput = document.getElementById('withdrawalAmount');
+      var msg = document.getElementById('withdrawalMsg');
+      var submitBtn = withdrawalForm.querySelector('button[type="submit"]');
+      var amount = Number(amountInput.value);
+
+      msg.className = 'field-error';
+      msg.textContent = '';
+
+      if (!amount || amount <= 0) {
+        msg.textContent = 'Enter an amount greater than zero.';
+        return;
+      }
+
+      submitBtn.disabled = true;
+
+      try {
+        var response = await authFetch('/accounts/me/withdraw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: amount })
+        });
+
+        var data = await response.json();
+
+        if (!response.ok) {
+          msg.textContent = typeof data.detail === 'string'
+            ? data.detail
+            : 'Please check the amount and try again.';
+          return;
+        }
+
+        msg.className = 'field-success';
+        msg.textContent = data.message;
+        withdrawalForm.reset();
+        loadDashboardData(); 
+      } catch (error) {
+        console.error(error);
+        msg.textContent = 'Unable to connect to the server.';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  /* ---------- Transfer ---------- */
+  var transferForm = document.getElementById('transferForm');
+  if (transferForm) {
+    transferForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      var toInput = document.getElementById('transferTo');
+      var amountInput = document.getElementById('transferAmount');
+      var msg = document.getElementById('transferMsg');
+      var submitBtn = transferForm.querySelector('button[type="submit"]');
+
+      var accountNumber = toInput.value.trim(); // keep as a string
+      var amount = Number(amountInput.value);
+
+      msg.className = 'field-error';
+      msg.textContent = '';
+
+      if (!/^\d{10}$/.test(accountNumber)) {
+        msg.textContent = 'Enter a valid 10-digit account number.';
+        return;
+      }
+      if (!amount || amount <= 0) {
+        msg.textContent = 'Enter an amount greater than zero.';
+        return;
+      }
+
+      submitBtn.disabled = true;
+
+      try {
+        var response = await authFetch('/accounts/transfers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_number: accountNumber, amount: amount })
+        });
+
+        var data = await response.json();
+
+        if (!response.ok) {
+          msg.textContent = typeof data.detail === 'string'
+            ? data.detail
+            : 'Please check the details and try again.';
+          return;
+        }
+
+        msg.className = 'field-success';
+        msg.textContent = KB.formatNaira(data.amount) + ' sent to ' + data.receiver_name.toUpperCase() +
+          '. Ref: ' + data.sender_reference;
+        transferForm.reset();
+        loadDashboardData();
+      } catch (error) {
+        console.error(error);
+        msg.textContent = 'Unable to connect to the server.';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
   /* ---------- Dashboard (only runs on dashboard.html) ---------- */
+
+  /* ---------- Auth helpers ---------- */
+  var refreshPromise = null; // the refresh currently in progress, if any
+
+  async function refreshTokens() {
+    var refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) return false;
+
+    try {
+      var response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+
+      if (!response.ok) {
+        // The server rejected the token: the session is really over
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+        }
+        return false;
+      }
+
+      var data = await response.json();
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      return true;
+    } catch (error) {
+      // Network error: keep the tokens, they may still be valid
+      return false;
+    }
+  }
+
+  function refreshOnce() {
+    if (!refreshPromise) {
+      refreshPromise = refreshTokens().finally(function () {
+        refreshPromise = null;
+      });
+    }
+    return refreshPromise;
+  }
+
+  async function authFetch(path, options) {
+    options = options || {};
+
+    function send() {
+      var token = localStorage.getItem('access_token');
+      var headers = Object.assign({}, options.headers, {
+        'Authorization': `Bearer ${token}`
+      });
+      return fetch(`${API_URL}${path}`, Object.assign({}, options, { headers: headers }));
+    }
+
+    var response = await send();
+    if (response.status !== 401) return response;
+
+    var refreshed = await refreshOnce();
+    if (!refreshed) return response;
+
+    return send(); // retry once with the new access token
+  }
+
+  async function getCurrentUser() {
+    var response = await authFetch('/auth/me');
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  }
+
+
+  async function getMyAccount() {
+      var response = await authFetch('/accounts/me')
+
+      if (!response.ok) {
+          return null;
+      }
+
+      return await response.json();
+  }
+
+  async function getMyTransactions() {
+    try {
+      var response = await authFetch('/accounts/transactions')
+    } catch (error) {
+      console.error(error);
+      return [];
+    }
+  
+    if (!response.ok) {
+        return [];
+    }
+
+    return await response.json();
+  }
+
+  async function loadDashboardData() {
+    var transactions = await getMyTransactions();
+    var account = await getMyAccount();
+
+    document.getElementById('dashAcctNumber').textContent =
+      account.account_number;
+
+    document.getElementById('dashBalance').textContent =
+      `₦${Number(account.balance).toLocaleString()}`;
+
+    renderLedger(transactions); 
+  }
+
   var dashRoot = document.getElementById('dashboardRoot');
   if (dashRoot) {
     initDashboard();
   }
 
-  function initDashboard() {
-    var sessionNumber = KB.getSession();
-    var account = sessionNumber ? KB.getAccountByNumber(sessionNumber) : null;
-
+  async function initDashboard() {
     var gate = document.getElementById('gate');
     var content = document.getElementById('dashboardContent');
 
-    if (!account) {
+    var user = null;
+    var account = null;
+    try {
+      var user = await getCurrentUser();
+      var account = await getMyAccount();
+    } catch (error) {
+      console.error(error);
+    }
+     
+    // If the user is not authenticated, show the login gate
+    if (!user || !account) {
+
       if (gate) gate.hidden = false;
       if (content) content.hidden = true;
+
       return;
     }
+    
+
+    // User is authenticated and has an account
     if (gate) gate.hidden = true;
     if (content) content.hidden = false;
 
-    render(account);
 
-    var logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', function () {
-        KB.logout();
-        window.location.href = 'index.html';
-      });
-    }
-
-    var depositForm = document.getElementById('depositForm');
-    if (depositForm) {
-      depositForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var amount = document.getElementById('depositAmount').value;
-        var desc = document.getElementById('depositDesc').value.trim() || 'Deposit';
-        var result = KB.deposit(account.number, amount, desc);
-        var msg = document.getElementById('depositMsg');
-        if (!result.ok) {
-          msg.textContent = result.error;
-          return;
-        }
-        msg.textContent = '';
-        depositForm.reset();
-        account = result.account;
-        render(account);
-      });
-    }
-
-    var transferForm = document.getElementById('transferForm');
-    if (transferForm) {
-      transferForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var to = document.getElementById('transferTo').value.trim();
-        var amount = document.getElementById('transferAmount').value;
-        var desc = document.getElementById('transferDesc').value.trim();
-        var result = KB.transfer(account.number, to, amount, desc);
-        var msg = document.getElementById('transferMsg');
-        if (!result.ok) {
-          msg.textContent = result.error;
-          return;
-        }
-        msg.textContent = '';
-        transferForm.reset();
-        account = result.account;
-        render(account);
-      });
-    }
+    document.getElementById('dashName').textContent =
+      `Welcome, ${user.first_name.toUpperCase()} ${user.last_name.toUpperCase()}`;
+    loadDashboardData();
+    
   }
 
-  function render(account) {
-    var setText = function (id, text) {
-      var el = document.getElementById(id);
-      if (el) el.textContent = text;
-    };
-    setText('dashName', account.name);
-    setText('dashAcctNumber', account.number);
-    setText('dashAcctType', account.type);
-    setText('dashBalance', KB.formatNaira(account.balance));
+  // if (document.getElementById('dashboardRoot')) {
+  //   initDashboard();
+  // }
+
+
+  function renderLedger(transactions) {
 
     var tbody = document.getElementById('ledgerBody');
     var empty = document.getElementById('ledgerEmpty');
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    if (!account.transactions.length) {
+    if (!transactions || !transactions.length) {
       if (empty) empty.hidden = false;
       return;
     }
     if (empty) empty.hidden = true;
 
-    account.transactions.forEach(function (t) {
+    var CREDIT_TYPES = ['deposit', 'transfer_in'];
+
+    transactions.forEach(function (t) {
       var tr = document.createElement('tr');
-      var isCredit = t.amount >= 0;
+      var isCredit = CREDIT_TYPES.includes(t.transaction_type.toLowerCase());
       tr.innerHTML =
-        '<td>' + KB.formatDate(t.ts) + '</td>' +
-        '<td>' + escapeHtml(t.desc) + '</td>' +
+        '<td>' + KB.formatDate(t.created_at) + '</td>' +
+        '<td>' + escapeHtml(t.reference) + '</td>' +
+        '<td> '+ escapeHtml(t.transaction_type.replace('_', ' ')) + '</td>' +
         '<td class="' + (isCredit ? 'amt-credit' : 'amt-debit') + '">' +
-          (isCredit ? '+' : '−') + KB.formatNaira(Math.abs(t.amount)).replace('₦', '₦') +
-        '</td>' +
-        '<td>' + KB.formatNaira(t.balanceAfter) + '</td>';
+        (isCredit ? '+' : '−') + KB.formatNaira(t.amount) +
+        '</td>';
       tbody.appendChild(tr);
     });
   }
@@ -417,4 +709,14 @@ document.addEventListener('DOMContentLoaded', function () {
     div.textContent = str;
     return div.innerHTML;
   }
+
+  /* ---------- Logout ---------- */
+var logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', function () {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    window.location.href = 'index.html';
+  });
+}
 });

@@ -378,6 +378,16 @@ footer{background:var(--charcoal);color:var(--stone);padding:64px 0 32px;}
   position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;
 }
 
+[hidden] { display: none !important; }
+
+.amt-credit, .amt-debit{
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.field-success, .field-error{margin-top:10px;colour:var(--grey-mid);font-size:13px;min-height:1em;}
+
+
 @media (prefers-reduced-motion: reduce){
   html{scroll-behavior:auto;}
   *{transition:none !important;}

@@ -178,12 +178,23 @@
       <p class="sub">Log in to view your account ledger.</p>
       <form id="loginForm">
         <div class="field">
-          <label for="loginAcct">Account number</label>
-          <input type="text" id="loginAcct" inputmode="numeric" placeholder="10-digit account number" required>
+          <label for="loginEmail">Email address</label>
+          <input
+              type="email"
+              id="loginEmail"
+              placeholder="you@example.com"
+              required
+          >
         </div>
+
         <div class="field">
-          <label for="loginPin">PIN</label>
-          <input type="password" id="loginPin" placeholder="••••" maxlength="4" inputmode="numeric" required>
+            <label for="loginPassword">Password</label>
+            <input
+                type="password"
+                id="loginPassword"
+                placeholder="Your password"
+                required
+            >
         </div>
         <p class="field-error" id="loginError"></p>
         <button type="submit" class="btn btn-primary">Log in</button>
@@ -192,33 +203,61 @@
 
     <div class="modal-pane" id="paneSignup" hidden>
       <h3>Open an account</h3>
-      <p class="sub">Creates a demo account, stored in this browser only.</p>
       <form id="signupForm">
-        <div class="field">
-          <label for="signupName">Full name</label>
-          <input type="text" id="signupName" placeholder="Your name" required>
+       <div class="field">
+        <label for="signupFirstName">First name</label>
+        <input
+            type="text"
+            id="signupFirstName"
+            placeholder="Your first name"
+            required
+        >
         </div>
-        <div class="field">
-          <label for="signupType">Account type</label>
-          <select id="signupType">
-            <option>Standard savings</option>
-            <option>Current account</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="signupDeposit">Opening deposit (₦)</label>
-          <input type="number" id="signupDeposit" min="0" step="500" value="5000" required>
-        </div>
-        <div class="field">
-          <label for="signupPin">Choose a 4-digit PIN</label>
-          <input type="password" id="signupPin" placeholder="••••" maxlength="4" inputmode="numeric" required>
-        </div>
-        <p class="field-error" id="signupError"></p>
-        <button type="submit" class="btn btn-primary">Create account</button>
-      </form>
-    </div>
 
-    <p class="modal-note">Demo only — accounts live in this browser's storage, not a real bank.</p>
+        <div class="field">
+            <label for="signupLastName">Last name</label>
+            <input
+                type="text"
+                id="signupLastName"
+                placeholder="Your last name"
+                required
+            >
+        </div>
+
+        <div class="field">
+            <label for="signupEmail">Email address</label>
+            <input
+                type="email"
+                id="signupEmail"
+                placeholder="you@example.com"
+                required
+            >
+        </div>
+
+        <div class="field">
+            <label for="signupPhone">Phone number</label>
+            <input
+                type="tel"
+                id="signupPhone"
+                placeholder="08012345678"
+                required
+            >
+        </div>
+
+        <div class="field">
+            <label for="signupPassword">Password</label>
+            <input
+                type="password"
+                id="signupPassword"
+                placeholder="Create a password"
+                required
+            >
+        </div>
+
+            <p class="field-error" id="signupError"></p>
+            <button type="submit" class="btn btn-primary">Create account</button>
+          </form>
+        </div>
   </div>
 </div>
 
